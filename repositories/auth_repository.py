@@ -3,9 +3,11 @@ from typing import Union, Dict, Any
 
 from fastapi import HTTPException
 from sqlalchemy import select, delete, insert, func
+from sqlalchemy.exc import NoResultFound, DBAPIError
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from auth.refresh_token_handler import DeleteRefreshTokenRepository
 from auth.token_handler import TokenHandler
 from models.user_model import UserModel, TokenModel
 from schemas.auth_schemas import UserLoginSchema
@@ -44,18 +46,56 @@ class RefreshTokenRepository:
         except Exception as ex:
             raise HTTPException(status_code=404, detail=f'User id not found ')
 
+    # async def save_refresh_token(self, user_id: int, refresh_token: str, access_token: str):
+    #     try:
+    #         token = TokenModel(
+    #             user_id=user_id,
+    #             access_token=access_token,
+    #             refresh_token=refresh_token,
+    #             expires_at=func.now() + timedelta(days=7)
+    #         )
+    #         self.db.add(token)
+    #         await self.db.commit()
+    #     except Exception as ex:
+    #         raise HTTPException(status_code=404, detail=f'Refresh Token can\'t save {str(ex)}')
+
     async def save_refresh_token(self, user_id: int, refresh_token: str, access_token: str):
+        """Save both access and refresh tokens for user"""
+        from datetime import datetime, timezone, timedelta
+
         try:
-            token = TokenModel(
-                user_id=user_id,
-                access_token=access_token,
-                refresh_token=refresh_token,
-                expires_at=func.now() + timedelta(days=7)
+            # Check if token exists for this user
+            result = await self.db.execute(
+                select(TokenModel).where(TokenModel.user_id == user_id)
             )
-            self.db.add(token)
+            token_record = result.scalar_one_or_none()
+            print('token record is ', token_record)
+
+            expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+
+            if token_record:
+                # Update existing tokens
+                token_record.access_token = access_token
+                token_record.refresh_token = refresh_token
+                token_record.expires_at = expires_at
+            else:
+                # Create new token record
+                token_record = TokenModel(
+                    user_id=user_id,
+                    access_token=access_token,
+                    refresh_token=refresh_token,
+                    expires_at=expires_at
+                )
+                self.db.add(token_record)
+
             await self.db.commit()
-        except Exception as ex:
-            raise HTTPException(status_code=404, detail=f'Refresh Token can\'t save {str(ex)}')
+            return True
+        except Exception as e:
+            await self.db.rollback()
+            print(e)
+            raise e
+
+
 
 
 
@@ -168,3 +208,53 @@ class UserLoginRepository:
             'refresh_token': refresh_token
         }
 
+    @staticmethod
+    async def get_user_with_profile(db: AsyncSession, user_id: int) -> Dict[str, Any]:
+        """Get complete user data with profile for refresh token response"""
+
+        try:
+            # Query user with profile relationship
+            query = select(UserModel).where(UserModel.id == user_id)
+            result = await db.execute(query)
+            user = result.scalar_one_or_none()
+
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
+
+            # Return user data in the same format as login method
+            return {
+                'id': user.id,
+                'firstname': user.firstname,
+                'lastname': user.lastname,
+                'username': user.username,
+                'email': user.email,
+                'status': user.status
+            }
+
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error fetching user: {str(e)}")
+
+
+
+
+class UserLogoutRepository:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def logout(self, user_id: int):
+        """
+        Logs out a user by deleting their refresh token.
+
+        :param user_id: ID of the user.
+        :return: True if logout is successful, False otherwise.
+        """
+        try:
+            await DeleteRefreshTokenRepository(self.db).delete_refresh_token(user_id)
+            return {"detail": "Logged out"}
+        except NoResultFound:
+            return {"detail": "Already logged out"}
+        except DBAPIError as e:
+            raise HTTPException(status_code=500, detail="Internal server error during logout")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail="An unexpected error occurred")

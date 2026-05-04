@@ -71,15 +71,12 @@ class VerifyRefreshTokenMiddleware:
 
 
         except jwt.ExpiredSignatureError:
-            user_logger.warning("Expired refresh token")
             raise HTTPException(status_code=401, detail="Expired refresh token")
 
         except jwt.InvalidTokenError as e:
-            user_logger.warning(f"Invalid refresh token: {str(e)}")
             raise HTTPException(status_code=401, detail="Invalid refresh token")
 
         except Exception as e:
-            user_logger.error(f"Unexpected error validating refresh token: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"An error occurred while validating the refresh token, {e}")
 
 
@@ -96,7 +93,7 @@ class UpdateRefreshTokenRepository:
         """
         try:
             await self.db.execute(
-                update(TokenModel).where(TokenModel.user_id == user_id).values(tokens=refresh_token)
+                update(TokenModel).where(TokenModel.user_id == user_id).values(refresh_token=refresh_token)
             )
             await self.db.commit()
         except Exception as e:
@@ -120,7 +117,6 @@ class DeleteRefreshTokenRepository:
             token = result.scalars().first()
 
             if not token:
-                user_logger.warning(f"No refresh token found for user {user_id} (already logged out?)")
                 return
 
             # Delete Token
@@ -141,7 +137,7 @@ class SearchRefreshTokenRepository:
 
         try:
             token = await self.db.execute(
-                select(TokenModel).where(TokenModel.tokens == refresh_token)
+                select(TokenModel).where(TokenModel.refresh_token == refresh_token)
             )
 
             token = token.scalar()
