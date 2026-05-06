@@ -1,10 +1,9 @@
 # models.py
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.sql import func
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 
-Base = declarative_base()
-
+from db.base import Base
 
 class UserModel(Base):
     __tablename__ = "users"
@@ -18,6 +17,8 @@ class UserModel(Base):
     status = Column(String(50), default="active")
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    transports = relationship("TransportModel", back_populates="creator", cascade="all, delete-orphan")
 
 
 class TokenModel(Base):

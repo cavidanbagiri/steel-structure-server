@@ -5,12 +5,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from routers import auth_router
+from routers import transport_router
 
 app = FastAPI()
 
 
 load_dotenv()
-
 
 
 origins = [
@@ -27,3 +27,4 @@ app.add_middleware(
 
 
 app.include_router(router = auth_router.router, prefix="/api/auth", tags=["User"])
+app.include_router(router = transport_router.router, prefix="/api/transport", tags=["Transport"])
