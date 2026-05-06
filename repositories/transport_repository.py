@@ -293,8 +293,6 @@ class ImportTransportDataRepository:
         logger.info(f"Errors saved to {error_file}")
 
 
-
-
 class FetchTransportDataRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -385,7 +383,7 @@ class FetchTransportDataRepository:
             total_count = await self.db.scalar(count_query)
 
             # Add pagination and ordering
-            query = query.order_by(TransportModel.id.asc())
+            query = query.order_by(TransportModel.id.desc())
             query = query.offset(offset).limit(limit)
 
             # Execute query
@@ -475,3 +473,115 @@ class FetchTransportDataRepository:
         except Exception as e:
             logger.error(f"Failed to get unique values for {column_name}: {str(e)}")
             raise Exception(f"Query failed: {str(e)}")
+
+
+class TransportWriteRepository:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def create_transport(self, data: Dict) -> Dict:
+        """Insert a new transport record"""
+        try:
+            # Convert date string to date object if present
+            if 't_date' in data and data['t_date']:
+                if isinstance(data['t_date'], str):
+                    data['t_date'] = datetime.strptime(data['t_date'], '%Y-%m-%d').date()
+
+            # Create new transport instance
+            new_transport = TransportModel(**data)
+            self.db.add(new_transport)
+            await self.db.commit()
+            await self.db.refresh(new_transport)
+
+            # Return the created record
+            return {
+                "id": new_transport.id,
+                "structure_1": new_transport.structure_1,
+                "structure_2": new_transport.structure_2,
+                "raw_labels": new_transport.raw_labels,
+                "mark_name": new_transport.mark_name,
+                "t_qty": new_transport.t_qty,
+                "t_weight": new_transport.t_weight,
+                "t_date": new_transport.t_date.isoformat() if new_transport.t_date else None,
+                "t_status": new_transport.t_status,
+                "proce_qty": new_transport.proce_qty,
+                "order_no": new_transport.order_no,
+                "key": new_transport.key,
+                "area": new_transport.area,
+                "location": new_transport.location,
+                "created_by": new_transport.created_by,
+                "created_at": new_transport.created_at.isoformat() if new_transport.created_at else None,
+                "updated_at": new_transport.updated_at.isoformat() if new_transport.updated_at else None
+            }
+
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Failed to create transport: {str(e)}")
+            raise Exception(f"Create failed: {str(e)}")
+
+    async def update_transport(self, transport_id: int, data: Dict) -> Dict:
+        """Update an existing transport record"""
+        try:
+            # Find existing record
+            query = select(TransportModel).where(TransportModel.id == transport_id)
+            result = await self.db.execute(query)
+            transport = result.scalar_one_or_none()
+
+            if not transport:
+                raise Exception(f"Transport with ID {transport_id} not found")
+
+            # Update fields
+            for key, value in data.items():
+                if key == 't_date' and value:
+                    if isinstance(value, str):
+                        value = datetime.strptime(value, '%Y-%m-%d').date()
+                if hasattr(transport, key) and value is not None:
+                    setattr(transport, key, value)
+
+            await self.db.commit()
+            await self.db.refresh(transport)
+
+            # Return updated record
+            return {
+                "id": transport.id,
+                "structure_1": transport.structure_1,
+                "structure_2": transport.structure_2,
+                "raw_labels": transport.raw_labels,
+                "mark_name": transport.mark_name,
+                "t_qty": transport.t_qty,
+                "t_weight": transport.t_weight,
+                "t_date": transport.t_date.isoformat() if transport.t_date else None,
+                "t_status": transport.t_status,
+                "proce_qty": transport.proce_qty,
+                "order_no": transport.order_no,
+                "key": transport.key,
+                "area": transport.area,
+                "location": transport.location,
+                "created_by": transport.created_by,
+                "created_at": transport.created_at.isoformat() if transport.created_at else None,
+                "updated_at": transport.updated_at.isoformat() if transport.updated_at else None
+            }
+
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Failed to update transport {transport_id}: {str(e)}")
+            raise Exception(f"Update failed: {str(e)}")
+
+    async def delete_transport(self, transport_id: int) -> bool:
+        """Delete a transport record"""
+        try:
+            query = select(TransportModel).where(TransportModel.id == transport_id)
+            result = await self.db.execute(query)
+            transport = result.scalar_one_or_none()
+
+            if not transport:
+                raise Exception(f"Transport with ID {transport_id} not found")
+
+            await self.db.delete(transport)
+            await self.db.commit()
+            return True
+
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Failed to delete transport {transport_id}: {str(e)}")
+            raise Exception(f"Delete failed: {str(e)}")
