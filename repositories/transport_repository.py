@@ -383,7 +383,7 @@ class FetchTransportDataRepository:
             total_count = await self.db.scalar(count_query)
 
             # Add pagination and ordering
-            query = query.order_by(TransportModel.id.desc())
+            query = query.order_by(TransportModel.id.asc())
             query = query.offset(offset).limit(limit)
 
             # Execute query

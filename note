@@ -1,0 +1,84 @@
+
+
+
+now, l want to create a new model which name will be 'combine'
+
+Columns[
+    id: int,
+    transport_id: ForeignKey(TransportModel),
+    main_id: ForeignKey(Mains),
+    erected_id: ForeignKey(Erected),
+]
+
+My Another Models maybe you need
+
+
+
+class TransportModel(Base):
+    __tablename__ = "transports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    structure_1 = Column(String, nullable=True)
+    structure_2 = Column(String, nullable=True)
+    raw_labels = Column(String, nullable=True)
+    mark_name = Column(String, nullable=True)
+    t_qty = Column(Float, nullable=True)
+    t_weight = Column(Float, nullable=True)
+    t_date = Column(Date, nullable=True)
+    t_status = Column(String, nullable=True)
+    proce_qty = Column(Integer, nullable=True)
+    order_no = Column(String, nullable=True)
+    key = Column(String, nullable=True)
+    area = Column(String, nullable=True)
+    location = Column(String, nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    creator = relationship("UserModel", back_populates="transports")
+
+    def __repr__(self):
+        return f"<Transport {self.id} - {self.mark_name}>"
+
+
+
+
+class Mains(Base):
+    __tablename__ = "mains"
+
+    id = Column(Integer, primary_key=True, index=True)
+    area = Column(String, nullable=True)
+    zone = Column(String, nullable=True)
+    key = Column(String, nullable=True)
+    row_labels = Column(String, nullable=True)
+    item = Column(String, nullable=True)
+    p_s = Column(String, nullable=True)  # p/s field
+    qty = Column(Float, nullable=True)
+    description = Column(String, nullable=True)
+    section = Column(String, nullable=True)
+    length = Column(Float, nullable=True)
+    weight = Column(Float, nullable=True)
+    weight_total = Column(Float, nullable=True)
+    dwgn = Column(String, nullable=True)
+
+
+class Erected(Base):
+    __tablename__ = "erecteds"
+
+    id = Column(Integer, primary_key=True, index=True)
+    area = Column(String, nullable=True)
+    structure = Column(String, nullable=True)
+    row_labels = Column(String, nullable=True)
+    mark_names = Column(String, nullable=True)
+    e_qty = Column(Float, nullable=True)
+    e_weight = Column(Float, nullable=True)  # e-weight field
+    daily_e_date = Column(Date, nullable=True)
+    proce_qty = Column(Float, nullable=True)
+    altitude_mark_1 = Column(String, nullable=True)
+    axis = Column(String, nullable=True)
+    range = Column(String, nullable=True)
+    altitude_mark_2 = Column(String, nullable=True)
+
+
+
