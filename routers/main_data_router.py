@@ -11,27 +11,27 @@ from repositories.main_data_repository import ImportMainDataRepository, FetchMai
 router = APIRouter()
 
 
-@router.post("/import_static_main_data", status_code=status.HTTP_201_CREATED)
-async def import_static_main_data(
-        background_tasks: BackgroundTasks,
-        use_batch_method: bool = False,
-        db: AsyncSession = Depends(get_db)
-):
-    try:
-        repo = ImportMainDataRepository(db)
-
-        # Run import in background for large files
-        if use_batch_method:
-            result = await repo.import_static_main_data_batch()
-        else:
-            result = await repo.import_static_main_data()
-
-        return result
-
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# @router.post("/import_static_main_data", status_code=status.HTTP_201_CREATED)
+# async def import_static_main_data(
+#         background_tasks: BackgroundTasks,
+#         use_batch_method: bool = False,
+#         db: AsyncSession = Depends(get_db)
+# ):
+#     try:
+#         repo = ImportMainDataRepository(db)
+#
+#         # Run import in background for large files
+#         if use_batch_method:
+#             result = await repo.import_static_main_data_batch()
+#         else:
+#             result = await repo.import_static_main_data()
+#
+#         return result
+#
+#     except FileNotFoundError as e:
+#         raise HTTPException(status_code=404, detail=str(e))
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/preview_static_data")
@@ -60,16 +60,10 @@ async def fetch_main_data(
     p_s: Optional[str] = Query(None, description="Filter by P/S (exact match)"),
     section: Optional[str] = Query(None, description="Filter by Section (partial match)"),
     dwgn: Optional[str] = Query(None, description="Filter by DWGN (partial match)"),
-    # Range filters
-    min_qty: Optional[float] = Query(None, description="Minimum quantity"),
-    max_qty: Optional[float] = Query(None, description="Maximum quantity"),
-    min_length: Optional[float] = Query(None, description="Minimum length"),
-    max_length: Optional[float] = Query(None, description="Maximum length"),
-    min_weight: Optional[float] = Query(None, description="Minimum weight"),
-    max_weight: Optional[float] = Query(None, description="Maximum weight"),
-    min_weight_total: Optional[float] = Query(None, description="Minimum total weight"),
-    max_weight_total: Optional[float] = Query(None, description="Maximum total weight"),
-    # Global search
+    qty: Optional[float] = Query(None, description="Quantity"),
+    length: Optional[float] = Query(None, description="Length"),
+    weight: Optional[float] = Query(None, description="Weight"),
+    weight_total: Optional[float] = Query(None, description="Total weight"),
     search: Optional[str] = Query(None, description="Search across multiple fields"),
     db: AsyncSession = Depends(get_db)
 ):
@@ -86,14 +80,10 @@ async def fetch_main_data(
             p_s=p_s,
             section=section,
             dwgn=dwgn,
-            min_qty=min_qty,
-            max_qty=max_qty,
-            min_length=min_length,
-            max_length=max_length,
-            min_weight=min_weight,
-            max_weight=max_weight,
-            min_weight_total=min_weight_total,
-            max_weight_total=max_weight_total,
+            qty=qty,
+            length=length,
+            weight=weight,
+            weight_total=weight_total,
             search=search
         )
         return result

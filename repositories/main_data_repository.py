@@ -316,16 +316,10 @@ class FetchMainDataRepository:
             p_s: Optional[str] = None,
             section: Optional[str] = None,
             dwgn: Optional[str] = None,
-            # Range filters
-            min_qty: Optional[float] = None,
-            max_qty: Optional[float] = None,
-            min_length: Optional[float] = None,
-            max_length: Optional[float] = None,
-            min_weight: Optional[float] = None,
-            max_weight: Optional[float] = None,
-            min_weight_total: Optional[float] = None,
-            max_weight_total: Optional[float] = None,
-            # Search across multiple fields
+            qty: Optional[float] = None,
+            length: Optional[float] = None,
+            weight: Optional[float] = None,
+            weight_total: Optional[float] = None,
             search: Optional[str] = None
     ):
         try:
@@ -357,26 +351,15 @@ class FetchMainDataRepository:
             if dwgn:
                 query = query.where(Mains.dwgn.ilike(f"%{dwgn}%"))
 
-            # Range filters
-            if min_qty is not None:
-                query = query.where(Mains.qty >= min_qty)
-            if max_qty is not None:
-                query = query.where(Mains.qty <= max_qty)
+            if qty:
+                query = query.where(Mains.qty == qty)
+            if length:
+                query = query.where(Mains.length == length)
+            if weight:
+                query = query.where(Mains.weight == weight)
 
-            if min_length is not None:
-                query = query.where(Mains.length >= min_length)
-            if max_length is not None:
-                query = query.where(Mains.length <= max_length)
-
-            if min_weight is not None:
-                query = query.where(Mains.weight >= min_weight)
-            if max_weight is not None:
-                query = query.where(Mains.weight <= max_weight)
-
-            if min_weight_total is not None:
-                query = query.where(Mains.weight_total >= min_weight_total)
-            if max_weight_total is not None:
-                query = query.where(Mains.weight_total <= max_weight_total)
+            if weight_total:
+                query = query.where(Mains.weight_total == weight_total)
 
             # Global search across multiple fields
             if search:
@@ -441,14 +424,10 @@ class FetchMainDataRepository:
                     "p_s": p_s,
                     "section": section,
                     "dwgn": dwgn,
-                    "min_qty": min_qty,
-                    "max_qty": max_qty,
-                    "min_length": min_length,
-                    "max_length": max_length,
-                    "min_weight": min_weight,
-                    "max_weight": max_weight,
-                    "min_weight_total": min_weight_total,
-                    "max_weight_total": max_weight_total,
+                    "qty": qty,
+                    "length": length,
+                    "weight": weight,
+                    "weight_total": weight_total,
                     "search": search
                 }
             }
