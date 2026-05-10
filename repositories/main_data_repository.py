@@ -1,19 +1,20 @@
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, date
 import json
 from io import BytesIO
 from typing import Optional
 
 from fastapi.responses import JSONResponse
-from fastapi import Depends, Query
+from fastapi import Depends, Query, HTTPException
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, and_, text
 from sqlalchemy.sql import func
 
-from models.main_models import Mains
+from models.main_models import Mains, TransportModel, Combine
+from schemas.main_schema import InsertTransportSchema
 
 
 class ImportMainDataRepository:
@@ -69,6 +70,7 @@ class ImportMainDataRepository:
                             item=self._clean_string(row.get('item')),
                             p_s=self._clean_string(row.get('p/s')),
                             qty=self._clean_float(row.get('qty')),
+                            left_over_qty=self._clean_float(row.get('qty')),
                             description=self._clean_string(row.get('description')),
                             section=self._clean_string(row.get('section')),
                             length=self._clean_float(row.get('length')),
@@ -379,6 +381,9 @@ class FetchMainDataRepository:
             count_query = select(func.count()).select_from(query.subquery())
             total_count = await self.db.scalar(count_query)
 
+            # 1. Apply Order By (Add this line)
+            query = query.order_by(Mains.id.asc())
+
             # Apply pagination
             query = query.offset(offset).limit(limit)
 
@@ -398,6 +403,7 @@ class FetchMainDataRepository:
                     "item": item.item,
                     "p_s": item.p_s,
                     "qty": item.qty,
+                    "left_over_qty": item.left_over_qty,  # ADD THIS
                     "description": item.description,
                     "section": item.section,
                     "length": item.length,
@@ -453,3 +459,138 @@ class FetchMainDataRepository:
             }
         except Exception as e:
             raise Exception(f"Failed to get unique values: {str(e)}")
+
+
+
+class GetRowByIdRepository:
+    def __init__(self, db: AsyncSession, id: int):
+        self.db = db
+        self.id = id
+
+    async def get_row_by_id(self):
+        try:
+            query = select(Mains).where(Mains.id == self.id)
+            result = await self.db.execute(query)
+            item = result.scalar_one_or_none()
+
+            if not item:
+                raise HTTPException(status_code=404, detail=f"Item with id {self.id} not found")
+
+            data = {
+                "id": item.id,
+                "area": item.area,
+                "zone": item.zone,
+                "key": item.key,
+                "row_labels": item.row_labels,
+                "item": item.item,
+                "p_s": item.p_s,
+                "qty": item.qty,
+                "left_over_qty": item.left_over_qty,  # ADD THIS
+                "description": item.description,
+                "section": item.section,
+                "length": item.length,
+                "weight": item.weight,
+                "weight_total": item.weight_total,
+                "dwgn": item.dwgn
+            }
+
+            return {
+                "success": True,
+                "data": data
+            }
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise Exception(f"Failed to fetch row by id: {str(e)}")
+
+
+class InsertToTransportRepository:
+    def __init__(self, db: AsyncSession, insert_data: InsertTransportSchema):
+        self.db = db
+        self.insert_data = insert_data
+
+    async def insert_to_transport(self):
+        try:
+            # 1. Get the row from main table
+            query = select(Mains).where(Mains.id == self.insert_data.row_id)
+            result = await self.db.execute(query)
+            main_row = result.scalar_one_or_none()
+
+            if not main_row:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Item with id {self.insert_data.row_id} not found"
+                )
+
+            # 2. Check if enough left_over_qty available (NOT qty)
+            current_leftover = main_row.left_over_qty if main_row.left_over_qty is not None else main_row.qty
+
+            if current_leftover < self.insert_data.qty:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Insufficient quantity. Available: {current_leftover}, Requested: {self.insert_data.qty}"
+                )
+
+            # 3. Calculate weight: transport_qty * main.weight
+            calculated_weight = self.insert_data.qty * main_row.weight if main_row.weight else 0
+
+            # 4. Create transport record
+            transport_record = TransportModel(
+                structure_1=main_row.area,
+                structure_2=main_row.key,
+                key=main_row.key,
+                raw_labels=main_row.row_labels,
+                mark_name=main_row.item,
+                t_qty=self.insert_data.qty,
+                t_weight=calculated_weight,
+                t_date=date.today(),
+                t_status=self.insert_data.status,
+                order_no=self.insert_data.order_no,
+                area=self.insert_data.area,
+                location=self.insert_data.location,
+                created_by=self.insert_data.created_by
+            )
+
+            self.db.add(transport_record)
+            await self.db.flush()  # Get transport_record.id without full commit
+
+            # 5. Deduct from left_over_qty (NOT from qty)
+            main_row.left_over_qty = current_leftover - self.insert_data.qty
+
+            # 6. Create Combine record to link main <-> transport
+            combine_record = Combine(
+                transport_id=transport_record.id,
+                main_id=main_row.id,
+                erected_id=None
+            )
+            self.db.add(combine_record)
+
+            # 7. Commit everything
+            await self.db.commit()
+            await self.db.refresh(transport_record)
+
+            return {
+                "success": True,
+                "message": "Transport record created successfully",
+                "data": {
+                    "transport_id": transport_record.id,
+                    "main_item_id": main_row.id,
+                    "combine_id": combine_record.id,
+                    "quantity_transported": self.insert_data.qty,
+                    "remaining_leftover": main_row.left_over_qty,
+                    "project_qty": main_row.qty,
+                    "weight": calculated_weight,
+                    "date": str(date.today()),
+                    "status": self.insert_data.status,
+                    "order_no": self.insert_data.order_no,
+                    "area": self.insert_data.area,
+                    "location": self.insert_data.location
+                }
+            }
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            await self.db.rollback()
+            raise Exception(f"Failed to insert transport record: {str(e)}")

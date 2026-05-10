@@ -48,6 +48,7 @@ class Mains(Base):
     item = Column(String, nullable=True)
     p_s = Column(String, nullable=True)  # p/s field
     qty = Column(Float, nullable=True)
+    left_over_qty = Column(Float, nullable=True)  # NEW: Remaining quantity
     description = Column(String, nullable=True)
     section = Column(String, nullable=True)
     length = Column(Float, nullable=True)
