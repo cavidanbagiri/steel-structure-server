@@ -8,7 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database.setup import get_db
 
 from repositories.transport_repository import ImportTransportDataRepository, FetchTransportDataRepository, \
-    TransportWriteRepository
+    TransportWriteRepository, GetTransportByIdRepository, InsertToErectedRepository
+
+
+from schemas.transport_schema import InsertErectedSchema
 
 router = APIRouter()
 
@@ -77,25 +80,19 @@ async def fetch_transport_data(
         raise HTTPException(500, f'Internal server error: {str(ex)}')
 
 
-@router.get("/fetch_transport_data/{transport_id}", status_code=200)
-async def fetch_transport_by_id(
-        transport_id: int,
-        db: AsyncSession = Depends(get_db)
+@router.get("/{id}", status_code=200)
+async def get_transport_by_id(
+    id: int,
+    db: AsyncSession = Depends(get_db)
 ):
-    repository = FetchTransportDataRepository(db)
-
     try:
-        result = await repository.get_transport_by_id(transport_id)
-
-        if not result:
-            raise HTTPException(404, f"Transport with ID {transport_id} not found")
-
+        repo = GetTransportByIdRepository(db, id)
+        result = await repo.get_transport_by_id()
         return result
-
     except HTTPException:
         raise
-    except Exception as ex:
-        raise HTTPException(500, f'Internal server error: {str(ex)}')
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/unique_values/{column_name}", status_code=200)
@@ -221,5 +218,23 @@ async def delete_transport(
 
     except Exception as ex:
         raise HTTPException(500, f'Internal server error: {str(ex)}')
+
+
+
+@router.post("/insert_to_erected", status_code=201)
+async def insert_to_erected(
+    insert_data: InsertErectedSchema,
+    db: AsyncSession = Depends(get_db)
+):
+    try:
+        repo = InsertToErectedRepository(db, insert_data)
+        result = await repo.insert_to_erected()
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 

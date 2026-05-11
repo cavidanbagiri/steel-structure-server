@@ -19,6 +19,7 @@ class UserModel(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     transports = relationship("TransportModel", back_populates="creator", cascade="all, delete-orphan")
+    erecteds = relationship("Erected", back_populates="creator", cascade="all, delete-orphan")
 
 
 class TokenModel(Base):

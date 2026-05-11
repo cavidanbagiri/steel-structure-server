@@ -7,11 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from sqlalchemy import select, and_, or_, func
 
+
 from fastapi import HTTPException
 
 import logging
 
-from models.main_models import TransportModel
+from models.main_models import TransportModel, Combine, Mains, Erected
+
+from schemas.transport_schema import InsertErectedSchema
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -400,6 +403,7 @@ class FetchTransportDataRepository:
                     "raw_labels": item.raw_labels,
                     "mark_name": item.mark_name,
                     "t_qty": item.t_qty,
+                    "t_leftover_qty": item.t_leftover_qty,
                     "t_weight": item.t_weight,
                     "t_date": item.t_date.isoformat() if item.t_date else None,
                     "t_status": item.t_status,
@@ -422,39 +426,6 @@ class FetchTransportDataRepository:
 
         except Exception as e:
             logger.error(f"Failed to fetch transport data: {str(e)}")
-            raise Exception(f"Database query failed: {str(e)}")
-
-    async def get_transport_by_id(self, transport_id: int) -> Optional[Dict]:
-        """Fetch a single transport by ID"""
-        try:
-            query = select(TransportModel).where(TransportModel.id == transport_id)
-            result = await self.db.execute(query)
-            item = result.scalar_one_or_none()
-
-            if item:
-                return {
-                    "id": item.id,
-                    "structure_1": item.structure_1,
-                    "structure_2": item.structure_2,
-                    "raw_labels": item.raw_labels,
-                    "mark_name": item.mark_name,
-                    "t_qty": item.t_qty,
-                    "t_weight": item.t_weight,
-                    "t_date": item.t_date.isoformat() if item.t_date else None,
-                    "t_status": item.t_status,
-                    "proce_qty": item.proce_qty,
-                    "order_no": item.order_no,
-                    "key": item.key,
-                    "area": item.area,
-                    "location": item.location,
-                    "created_by": item.created_by,
-                    "created_at": item.created_at.isoformat() if item.created_at else None,
-                    "updated_at": item.updated_at.isoformat() if item.updated_at else None
-                }
-            return None
-
-        except Exception as e:
-            logger.error(f"Failed to fetch transport by ID {transport_id}: {str(e)}")
             raise Exception(f"Database query failed: {str(e)}")
 
     async def get_unique_values(self, column_name: str) -> List[str]:
@@ -585,3 +556,156 @@ class TransportWriteRepository:
             await self.db.rollback()
             logger.error(f"Failed to delete transport {transport_id}: {str(e)}")
             raise Exception(f"Delete failed: {str(e)}")
+
+
+class GetTransportByIdRepository:
+    def __init__(self, db: AsyncSession, id: int):
+        self.db = db
+        self.id = id
+
+    async def get_transport_by_id(self):
+        try:
+            query = select(TransportModel).where(TransportModel.id == self.id)
+            result = await self.db.execute(query)
+            item = result.scalar_one_or_none()
+
+            if not item:
+                raise HTTPException(status_code=404, detail=f"Transport with id {self.id} not found")
+
+            return {
+                "success": True,
+                "data": {
+                    "id": item.id,
+                    "structure_1": item.structure_1,
+                    "structure_2": item.structure_2,
+                    "raw_labels": item.raw_labels,
+                    "mark_name": item.mark_name,
+                    "t_qty": item.t_qty,
+                    "t_leftover_qty": item.t_leftover_qty,
+                    "t_weight": item.t_weight,
+                    "t_date": str(item.t_date) if item.t_date else None,
+                    "t_status": item.t_status,
+                    "proce_qty": item.proce_qty,
+                    "order_no": item.order_no,
+                    "key": item.key,
+                    "area": item.area,
+                    "location": item.location,
+                    "created_by": item.created_by,
+                    "created_at": str(item.created_at) if item.created_at else None,
+                    "updated_at": str(item.updated_at) if item.updated_at else None,
+                }
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise Exception(f"Failed to fetch transport by id: {str(e)}")
+
+
+class InsertToErectedRepository:
+    def __init__(self, db: AsyncSession, insert_data: InsertErectedSchema):
+        self.db = db
+        self.insert_data = insert_data
+    async def insert_to_erected(self):
+        try:
+            # 1. Get transport record
+            transport_query = select(TransportModel).where(
+                TransportModel.id == self.insert_data.transport_id
+            )
+            transport_result = await self.db.execute(transport_query)
+            transport_row = transport_result.scalar_one_or_none()
+            if not transport_row:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Transport record with id {self.insert_data.transport_id} not found"
+                )
+            # 2. Validate against t_leftover_qty
+            if self.insert_data.e_qty <= 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Erected quantity must be greater than 0"
+                )
+            if transport_row.t_leftover_qty is None or transport_row.t_leftover_qty <= 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No remaining quantity available for erection from this transport"
+                )
+            if self.insert_data.e_qty > transport_row.t_leftover_qty:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Erected quantity ({self.insert_data.e_qty}) cannot exceed available leftover ({transport_row.t_leftover_qty})"
+                )
+            # 3. Find Combine record to get main_id
+            combine_query = select(Combine).where(
+                Combine.transport_id == self.insert_data.transport_id
+            )
+            combine_result = await self.db.execute(combine_query)
+            combine_row = combine_result.scalar_one_or_none()
+            if not combine_row or not combine_row.main_id:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No linked main record found for transport {self.insert_data.transport_id}"
+                )
+            # 4. Get Mains record for area and weight
+            main_query = select(Mains).where(Mains.id == combine_row.main_id)
+            main_result = await self.db.execute(main_query)
+            main_row = main_result.scalar_one_or_none()
+            if not main_row:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Main record with id {combine_row.main_id} not found"
+                )
+            # 5. Calculate weight: main.weight * e_qty
+            calculated_weight = main_row.weight * self.insert_data.e_qty if main_row.weight else 0
+            # 6. Create Erected record
+            erected_record = Erected(
+                area=main_row.area,
+                structure=transport_row.structure_2,
+                row_labels=transport_row.raw_labels,
+                mark_names=transport_row.mark_name,
+                e_qty=self.insert_data.e_qty,
+                e_weight=calculated_weight,
+                daily_e_date=date.today(),
+                proce_qty=transport_row.proce_qty,
+                altitude_mark_1=self.insert_data.altitude_mark_1,
+                altitude_mark_2=self.insert_data.altitude_mark_2,
+                axis=self.insert_data.axis,
+                range=self.insert_data.range,
+                created_by=self.insert_data.created_by
+            )
+            self.db.add(erected_record)
+            await self.db.flush()  # Get erected_record.id
+            # 7. Deduct from transport leftover
+            transport_row.t_leftover_qty -= self.insert_data.e_qty
+            # 8. Update Combine record with erected_id
+            combine_row.erected_id = erected_record.id
+            # 9. Commit everything
+            await self.db.commit()
+            await self.db.refresh(erected_record)
+            await self.db.refresh(transport_row)
+            await self.db.refresh(combine_row)
+            return {
+                "success": True,
+                "message": "Erected record created successfully",
+                "data": {
+                    "erected_id": erected_record.id,
+                    "transport_id": transport_row.id,
+                    "main_id": main_row.id,
+                    "combine_id": combine_row.id,
+                    "e_qty": self.insert_data.e_qty,
+                    "e_weight": calculated_weight,
+                    "date": str(date.today()),
+                    "area": main_row.area,
+                    "structure": transport_row.structure_2,
+                    "mark_names": transport_row.mark_name,
+                    "altitude_mark_1": self.insert_data.altitude_mark_1,
+                    "altitude_mark_2": self.insert_data.altitude_mark_2,
+                    "axis": self.insert_data.axis,
+                    "range": self.insert_data.range,
+                    "transport_leftover_qty": transport_row.t_leftover_qty  # UPDATED leftover
+                }
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            await self.db.rollback()
+            raise Exception(f"Failed to insert erected record: {str(e)}")

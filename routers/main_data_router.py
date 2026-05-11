@@ -11,28 +11,28 @@ from schemas.main_schema import InsertTransportSchema
 
 router = APIRouter()
 
-
-@router.post("/import_static_main_data", status_code=status.HTTP_201_CREATED)
-async def import_static_main_data(
-        background_tasks: BackgroundTasks,
-        use_batch_method: bool = False,
-        db: AsyncSession = Depends(get_db)
-):
-    try:
-        repo = ImportMainDataRepository(db)
-
-        # Run import in background for large files
-        if use_batch_method:
-            result = await repo.import_static_main_data_batch()
-        else:
-            result = await repo.import_static_main_data()
-
-        return result
-
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+#
+# @router.post("/import_static_main_data", status_code=status.HTTP_201_CREATED)
+# async def import_static_main_data(
+#         background_tasks: BackgroundTasks,
+#         use_batch_method: bool = False,
+#         db: AsyncSession = Depends(get_db)
+# ):
+#     try:
+#         repo = ImportMainDataRepository(db)
+#
+#         # Run import in background for large files
+#         if use_batch_method:
+#             result = await repo.import_static_main_data_batch()
+#         else:
+#             result = await repo.import_static_main_data()
+#
+#         return result
+#
+#     except FileNotFoundError as e:
+#         raise HTTPException(status_code=404, detail=str(e))
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/preview_static_data")

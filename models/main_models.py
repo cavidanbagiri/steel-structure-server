@@ -15,6 +15,7 @@ class TransportModel(Base):
     raw_labels = Column(String, nullable=True)
     mark_name = Column(String, nullable=True)
     t_qty = Column(Float, nullable=True)
+    t_leftover_qty = Column(Float, nullable=True)
     t_weight = Column(Float, nullable=True)
     t_date = Column(Date, nullable=True)
     t_status = Column(String, nullable=True)
@@ -75,9 +76,11 @@ class Erected(Base):
     axis = Column(String, nullable=True)
     range = Column(String, nullable=True)
     altitude_mark_2 = Column(String, nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
+    # Relationships
+    creator = relationship("UserModel", back_populates="erecteds")
     combines = relationship("Combine", back_populates="erected")
-
 
 class Combine(Base):
     __tablename__ = "combine"

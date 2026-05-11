@@ -533,7 +533,7 @@ class InsertToTransportRepository:
                 )
 
             # 3. Calculate weight: transport_qty * main.weight
-            calculated_weight = self.insert_data.qty * main_row.weight if main_row.weight else 0
+            calculated_weight = round(self.insert_data.qty * main_row.weight, 1) if main_row.weight else 0
 
             # 4. Create transport record
             transport_record = TransportModel(
@@ -543,9 +543,11 @@ class InsertToTransportRepository:
                 raw_labels=main_row.row_labels,
                 mark_name=main_row.item,
                 t_qty=self.insert_data.qty,
+                t_leftover_qty=self.insert_data.qty,
                 t_weight=calculated_weight,
                 t_date=date.today(),
                 t_status=self.insert_data.status,
+                proce_qty = main_row.qty,
                 order_no=self.insert_data.order_no,
                 area=self.insert_data.area,
                 location=self.insert_data.location,

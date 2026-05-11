@@ -1,11 +1,36 @@
 
 
-Everthing is working but l did some mistakes and l wanna fix it.
+Now, when we erected the data from transport model, we need to follow below steps
 
-1) In main data, we munt change the qty because this is project qty and always must be the same.
-2) For doing it, we need to create a new column to our main model and column name can be left_over_qty or something else.
-3) After inserting a new doc to our transport_model, we must set the id's of model to combine model. I am sharing the code with you.
+1) The data which comes from TransportModel, we need to import to erected_models
+[
+    Main.area -> Erected.area,
+    TransportModel.structure_2 -> Erected.structure,
+    TransportModel.mark_name -> Erected.mark_name,
+    TransportModel.proce_qty -> Erected.proce_qty,
+    Erected.e_qty -> Comes from frontend value ('The values can be greater than TransportModel.t_qty',
+    Erected.e_weight -> Main.weight * Erected.e_qty,
+    Erected.daily_e_date -> Current date,
+    Erected.altitude_mark_1 -> Comes from frontend value,
+    Erected.altitude_mark_2 -> Comes from frontend value,
+    Erected.axis -> Comes from frontend value,
+    Erected.range -> Comes from frontend value,
+    Erected.created_by -> Comes from frontend userId
+]
+2) If we pay attention, we can see, some data comes from main model instead of transport model and that's why, we need to get some information Combine model.
+4) After adding, need to update combine datas also.
+5) We will fix the frontend in second step.
 
+
+transport_schema.py
+class InsertErectedSchema(BaseModel):
+    id: int
+    e_qty: int
+    altitude_mark_1: Optional[str] = None
+    altitude_mark_2:Optional[str] = None
+    axis: Optional[str] = None
+    range: Optional[str] = None
+    created_by : int
 
 class TransportModel(Base):
     __tablename__ = "transports"
@@ -37,28 +62,6 @@ class TransportModel(Base):
 
 
 
-
-class Mains(Base):
-    __tablename__ = "mains"
-
-    id = Column(Integer, primary_key=True, index=True)
-    area = Column(String, nullable=True)
-    zone = Column(String, nullable=True)
-    key = Column(String, nullable=True)
-    row_labels = Column(String, nullable=True)
-    item = Column(String, nullable=True)
-    p_s = Column(String, nullable=True)  # p/s field
-    qty = Column(Float, nullable=True)
-    description = Column(String, nullable=True)
-    section = Column(String, nullable=True)
-    length = Column(Float, nullable=True)
-    weight = Column(Float, nullable=True)
-    weight_total = Column(Float, nullable=True)
-    dwgn = Column(String, nullable=True)
-
-    combines = relationship("Combine", back_populates="main")
-
-
 class Erected(Base):
     __tablename__ = "erecteds"
 
@@ -75,8 +78,36 @@ class Erected(Base):
     axis = Column(String, nullable=True)
     range = Column(String, nullable=True)
     altitude_mark_2 = Column(String, nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
+    # Relationships
+    creator = relationship("UserModel", back_populates="erecteds") # New added
     combines = relationship("Combine", back_populates="erected")
+
+
+
+
+class Mains(Base):
+    __tablename__ = "mains"
+
+    id = Column(Integer, primary_key=True, index=True)
+    area = Column(String, nullable=True)
+    zone = Column(String, nullable=True)
+    key = Column(String, nullable=True)
+    row_labels = Column(String, nullable=True)
+    item = Column(String, nullable=True)
+    p_s = Column(String, nullable=True)  # p/s field
+    qty = Column(Float, nullable=True)
+    left_over_qty = Column(Float, nullable=True)  # NEW: Remaining quantity
+    description = Column(String, nullable=True)
+    section = Column(String, nullable=True)
+    length = Column(Float, nullable=True)
+    weight = Column(Float, nullable=True)
+    weight_total = Column(Float, nullable=True)
+    dwgn = Column(String, nullable=True)
+
+    combines = relationship("Combine", back_populates="main")
+
 
 
 class Combine(Base):
@@ -91,4 +122,3 @@ class Combine(Base):
     transport = relationship("TransportModel", back_populates="combines")
     main = relationship("Mains", back_populates="combines")
     erected = relationship("Erected", back_populates="combines")
-
