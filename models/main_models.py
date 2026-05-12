@@ -6,6 +6,8 @@ from db.base import Base
 
 from models.user_model import UserModel
 
+
+
 class TransportModel(Base):
     __tablename__ = "transports"
 
@@ -34,8 +36,6 @@ class TransportModel(Base):
 
     def __repr__(self):
         return f"<Transport {self.id} - {self.mark_name}>"
-
-
 
 
 class Mains(Base):
@@ -81,6 +81,7 @@ class Erected(Base):
     # Relationships
     creator = relationship("UserModel", back_populates="erecteds")
     combines = relationship("Combine", back_populates="erected")
+
 
 class Combine(Base):
     __tablename__ = "combine"

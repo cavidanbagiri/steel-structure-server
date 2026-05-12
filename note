@@ -1,36 +1,38 @@
 
 
-Now, when we erected the data from transport model, we need to follow below steps
+Now we need to return all possible datas from combine models.
 
-1) The data which comes from TransportModel, we need to import to erected_models
-[
-    Main.area -> Erected.area,
-    TransportModel.structure_2 -> Erected.structure,
-    TransportModel.mark_name -> Erected.mark_name,
-    TransportModel.proce_qty -> Erected.proce_qty,
-    Erected.e_qty -> Comes from frontend value ('The values can be greater than TransportModel.t_qty',
-    Erected.e_weight -> Main.weight * Erected.e_qty,
-    Erected.daily_e_date -> Current date,
-    Erected.altitude_mark_1 -> Comes from frontend value,
-    Erected.altitude_mark_2 -> Comes from frontend value,
-    Erected.axis -> Comes from frontend value,
-    Erected.range -> Comes from frontend value,
-    Erected.created_by -> Comes from frontend userId
-]
-2) If we pay attention, we can see, some data comes from main model instead of transport model and that's why, we need to get some information Combine model.
-4) After adding, need to update combine datas also.
-5) We will fix the frontend in second step.
+#router.py
 
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+from database.setup import get_db
+from repositories.combine_repository import FetchAllCombineRepository
+router = APIRouter()
 
-transport_schema.py
-class InsertErectedSchema(BaseModel):
-    id: int
-    e_qty: int
-    altitude_mark_1: Optional[str] = None
-    altitude_mark_2:Optional[str] = None
-    axis: Optional[str] = None
-    range: Optional[str] = None
-    created_by : int
+@router.get("/", status_code=status.HTTP_200_OK)
+async def fetch_all_combine_data(db: AsyncSession = Depends(get_db)):
+    repo = FetchAllCombineRepository(db)
+    try:
+        result = await repo.fetch_all_combine_data()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+#repository.py
+
+from fastapi import Depends, HTTPException
+from models.main_models import Mains, TransportModel, Erected, Combine
+class FetchAllCombineRepository:
+    def __init__(self, db: AsyncSession = Depends(get_db)):
+        self.db = db
+
+    async def fetch_all_combine_data(self):
+        pass
+
+#main_models.py
+
 
 class TransportModel(Base):
     __tablename__ = "transports"
@@ -41,6 +43,7 @@ class TransportModel(Base):
     raw_labels = Column(String, nullable=True)
     mark_name = Column(String, nullable=True)
     t_qty = Column(Float, nullable=True)
+    t_leftover_qty = Column(Float, nullable=True)
     t_weight = Column(Float, nullable=True)
     t_date = Column(Date, nullable=True)
     t_status = Column(String, nullable=True)
@@ -59,32 +62,6 @@ class TransportModel(Base):
 
     def __repr__(self):
         return f"<Transport {self.id} - {self.mark_name}>"
-
-
-
-class Erected(Base):
-    __tablename__ = "erecteds"
-
-    id = Column(Integer, primary_key=True, index=True)
-    area = Column(String, nullable=True)
-    structure = Column(String, nullable=True)
-    row_labels = Column(String, nullable=True)
-    mark_names = Column(String, nullable=True)
-    e_qty = Column(Float, nullable=True)
-    e_weight = Column(Float, nullable=True)  # e-weight field
-    daily_e_date = Column(Date, nullable=True)
-    proce_qty = Column(Float, nullable=True)
-    altitude_mark_1 = Column(String, nullable=True)
-    axis = Column(String, nullable=True)
-    range = Column(String, nullable=True)
-    altitude_mark_2 = Column(String, nullable=True)
-    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-
-    # Relationships
-    creator = relationship("UserModel", back_populates="erecteds") # New added
-    combines = relationship("Combine", back_populates="erected")
-
-
 
 
 class Mains(Base):
@@ -108,6 +85,28 @@ class Mains(Base):
 
     combines = relationship("Combine", back_populates="main")
 
+
+class Erected(Base):
+    __tablename__ = "erecteds"
+
+    id = Column(Integer, primary_key=True, index=True)
+    area = Column(String, nullable=True)
+    structure = Column(String, nullable=True)
+    row_labels = Column(String, nullable=True)
+    mark_names = Column(String, nullable=True)
+    e_qty = Column(Float, nullable=True)
+    e_weight = Column(Float, nullable=True)  # e-weight field
+    daily_e_date = Column(Date, nullable=True)
+    proce_qty = Column(Float, nullable=True)
+    altitude_mark_1 = Column(String, nullable=True)
+    axis = Column(String, nullable=True)
+    range = Column(String, nullable=True)
+    altitude_mark_2 = Column(String, nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    # Relationships
+    creator = relationship("UserModel", back_populates="erecteds")
+    combines = relationship("Combine", back_populates="erected")
 
 
 class Combine(Base):

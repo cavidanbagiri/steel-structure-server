@@ -35,6 +35,7 @@ router = APIRouter()
 #         raise HTTPException(status_code=500, detail=str(e))
 
 
+
 @router.get("/preview_static_data")
 async def preview_static_data(
         db: AsyncSession = Depends(get_db)
