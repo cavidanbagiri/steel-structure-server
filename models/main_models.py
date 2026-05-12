@@ -27,10 +27,12 @@ class TransportModel(Base):
     area = Column(String, nullable=True)
     location = Column(String, nullable=True)
     created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    main_id = Column(Integer, ForeignKey("mains.id", ondelete="SET NULL"), nullable=True)  # NEW
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
+    main = relationship("Mains", back_populates="transports")  # NEW
     creator = relationship("UserModel", back_populates="transports")
     combines = relationship("Combine", back_populates="transport")
 
@@ -58,6 +60,8 @@ class Mains(Base):
     dwgn = Column(String, nullable=True)
 
     combines = relationship("Combine", back_populates="main")
+    transports = relationship("TransportModel", back_populates="main")  # NEW
+
 
 
 class Erected(Base):

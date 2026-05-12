@@ -1,123 +1,16 @@
 
 
-Now we need to return all possible datas from combine models.
+The result:
 
-#router.py
+Main ID     Transport ID        Erected ID
+612         38                  null
+612         38                  10
+612         38                  11
+612         38                  12
+612         38                  13
 
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from database.setup import get_db
-from repositories.combine_repository import FetchAllCombineRepository
-router = APIRouter()
-
-@router.get("/", status_code=status.HTTP_200_OK)
-async def fetch_all_combine_data(db: AsyncSession = Depends(get_db)):
-    repo = FetchAllCombineRepository(db)
-    try:
-        result = await repo.fetch_all_combine_data()
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-#repository.py
-
-from fastapi import Depends, HTTPException
-from models.main_models import Mains, TransportModel, Erected, Combine
-class FetchAllCombineRepository:
-    def __init__(self, db: AsyncSession = Depends(get_db)):
-        self.db = db
-
-    async def fetch_all_combine_data(self):
-        pass
-
-#main_models.py
-
-
-class TransportModel(Base):
-    __tablename__ = "transports"
-
-    id = Column(Integer, primary_key=True, index=True)
-    structure_1 = Column(String, nullable=True)
-    structure_2 = Column(String, nullable=True)
-    raw_labels = Column(String, nullable=True)
-    mark_name = Column(String, nullable=True)
-    t_qty = Column(Float, nullable=True)
-    t_leftover_qty = Column(Float, nullable=True)
-    t_weight = Column(Float, nullable=True)
-    t_date = Column(Date, nullable=True)
-    t_status = Column(String, nullable=True)
-    proce_qty = Column(Integer, nullable=True)
-    order_no = Column(String, nullable=True)
-    key = Column(String, nullable=True)
-    area = Column(String, nullable=True)
-    location = Column(String, nullable=True)
-    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
-    # Relationships
-    creator = relationship("UserModel", back_populates="transports")
-    combines = relationship("Combine", back_populates="transport")
-
-    def __repr__(self):
-        return f"<Transport {self.id} - {self.mark_name}>"
-
-
-class Mains(Base):
-    __tablename__ = "mains"
-
-    id = Column(Integer, primary_key=True, index=True)
-    area = Column(String, nullable=True)
-    zone = Column(String, nullable=True)
-    key = Column(String, nullable=True)
-    row_labels = Column(String, nullable=True)
-    item = Column(String, nullable=True)
-    p_s = Column(String, nullable=True)  # p/s field
-    qty = Column(Float, nullable=True)
-    left_over_qty = Column(Float, nullable=True)  # NEW: Remaining quantity
-    description = Column(String, nullable=True)
-    section = Column(String, nullable=True)
-    length = Column(Float, nullable=True)
-    weight = Column(Float, nullable=True)
-    weight_total = Column(Float, nullable=True)
-    dwgn = Column(String, nullable=True)
-
-    combines = relationship("Combine", back_populates="main")
-
-
-class Erected(Base):
-    __tablename__ = "erecteds"
-
-    id = Column(Integer, primary_key=True, index=True)
-    area = Column(String, nullable=True)
-    structure = Column(String, nullable=True)
-    row_labels = Column(String, nullable=True)
-    mark_names = Column(String, nullable=True)
-    e_qty = Column(Float, nullable=True)
-    e_weight = Column(Float, nullable=True)  # e-weight field
-    daily_e_date = Column(Date, nullable=True)
-    proce_qty = Column(Float, nullable=True)
-    altitude_mark_1 = Column(String, nullable=True)
-    axis = Column(String, nullable=True)
-    range = Column(String, nullable=True)
-    altitude_mark_2 = Column(String, nullable=True)
-    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-
-    # Relationships
-    creator = relationship("UserModel", back_populates="erecteds")
-    combines = relationship("Combine", back_populates="erected")
-
-
-class Combine(Base):
-    __tablename__ = "combine"
-
-    id = Column(Integer, primary_key=True, index=True)
-    transport_id = Column(Integer, ForeignKey("transports.id", ondelete="SET NULL"), nullable=True)
-    main_id = Column(Integer, ForeignKey("mains.id", ondelete="SET NULL"), nullable=True)
-    erected_id = Column(Integer, ForeignKey("erecteds.id", ondelete="SET NULL"), nullable=True)
-
-    # Relationships
-    transport = relationship("TransportModel", back_populates="combines")
-    main = relationship("Mains", back_populates="combines")
-    erected = relationship("Erected", back_populates="combines")
+Now, l transport from 35, 21 and 14 pcs.
+From 21pcs, l erect 9pcs,4pcs,3 pcs and 5pcs.
+For each erect, create a new id in Combine model. But l think this is a problem.
+I can say, this problem is coming from Insert from main to transport. Because when l insert from main to transport,
+first combine is created which Erected set as Null.

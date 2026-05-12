@@ -601,10 +601,122 @@ class GetTransportByIdRepository:
             raise Exception(f"Failed to fetch transport by id: {str(e)}")
 
 
+# class InsertToErectedRepository:
+#     def __init__(self, db: AsyncSession, insert_data: InsertErectedSchema):
+#         self.db = db
+#         self.insert_data = insert_data
+#     async def insert_to_erected(self):
+#         try:
+#             # 1. Get transport record
+#             transport_query = select(TransportModel).where(
+#                 TransportModel.id == self.insert_data.transport_id
+#             )
+#             transport_result = await self.db.execute(transport_query)
+#             transport_row = transport_result.scalar_one_or_none()
+#             if not transport_row:
+#                 raise HTTPException(
+#                     status_code=404,
+#                     detail=f"Transport record with id {self.insert_data.transport_id} not found"
+#                 )
+#             # 2. Validate against t_leftover_qty
+#             if self.insert_data.e_qty <= 0:
+#                 raise HTTPException(
+#                     status_code=400,
+#                     detail="Erected quantity must be greater than 0"
+#                 )
+#             if transport_row.t_leftover_qty is None or transport_row.t_leftover_qty <= 0:
+#                 raise HTTPException(
+#                     status_code=400,
+#                     detail="No remaining quantity available for erection from this transport"
+#                 )
+#             if self.insert_data.e_qty > transport_row.t_leftover_qty:
+#                 raise HTTPException(
+#                     status_code=400,
+#                     detail=f"Erected quantity ({self.insert_data.e_qty}) cannot exceed available leftover ({transport_row.t_leftover_qty})"
+#                 )
+#             # 3. Find Combine record to get main_id
+#             combine_query = select(Combine).where(
+#                 Combine.transport_id == self.insert_data.transport_id
+#             )
+#             combine_result = await self.db.execute(combine_query)
+#             combine_row = combine_result.scalar_one_or_none()
+#             if not combine_row or not combine_row.main_id:
+#                 raise HTTPException(
+#                     status_code=404,
+#                     detail=f"No linked main record found for transport {self.insert_data.transport_id}"
+#                 )
+#             # 4. Get Mains record for area and weight
+#             main_query = select(Mains).where(Mains.id == combine_row.main_id)
+#             main_result = await self.db.execute(main_query)
+#             main_row = main_result.scalar_one_or_none()
+#             if not main_row:
+#                 raise HTTPException(
+#                     status_code=404,
+#                     detail=f"Main record with id {combine_row.main_id} not found"
+#                 )
+#             # 5. Calculate weight: main.weight * e_qty
+#             calculated_weight = main_row.weight * self.insert_data.e_qty if main_row.weight else 0
+#             # 6. Create Erected record
+#             erected_record = Erected(
+#                 area=main_row.area,
+#                 structure=transport_row.structure_2,
+#                 row_labels=transport_row.raw_labels,
+#                 mark_names=transport_row.mark_name,
+#                 e_qty=self.insert_data.e_qty,
+#                 e_weight=calculated_weight,
+#                 daily_e_date=date.today(),
+#                 proce_qty=transport_row.proce_qty,
+#                 altitude_mark_1=self.insert_data.altitude_mark_1,
+#                 altitude_mark_2=self.insert_data.altitude_mark_2,
+#                 axis=self.insert_data.axis,
+#                 range=self.insert_data.range,
+#                 created_by=self.insert_data.created_by
+#             )
+#             self.db.add(erected_record)
+#             await self.db.flush()  # Get erected_record.id
+#             # 7. Deduct from transport leftover
+#             transport_row.t_leftover_qty -= self.insert_data.e_qty
+#             # 8. Update Combine record with erected_id
+#             combine_row.erected_id = erected_record.id
+#             # 9. Commit everything
+#             await self.db.commit()
+#             await self.db.refresh(erected_record)
+#             await self.db.refresh(transport_row)
+#             await self.db.refresh(combine_row)
+#             return {
+#                 "success": True,
+#                 "message": "Erected record created successfully",
+#                 "data": {
+#                     "erected_id": erected_record.id,
+#                     "transport_id": transport_row.id,
+#                     "main_id": main_row.id,
+#                     "combine_id": combine_row.id,
+#                     "e_qty": self.insert_data.e_qty,
+#                     "e_weight": calculated_weight,
+#                     "date": str(date.today()),
+#                     "area": main_row.area,
+#                     "structure": transport_row.structure_2,
+#                     "mark_names": transport_row.mark_name,
+#                     "altitude_mark_1": self.insert_data.altitude_mark_1,
+#                     "altitude_mark_2": self.insert_data.altitude_mark_2,
+#                     "axis": self.insert_data.axis,
+#                     "range": self.insert_data.range,
+#                     "transport_leftover_qty": transport_row.t_leftover_qty  # UPDATED leftover
+#                 }
+#             }
+#         except HTTPException:
+#             raise
+#         except Exception as e:
+#             await self.db.rollback()
+#             raise Exception(f"Failed to insert erected record: {str(e)}")
+
+
+
 class InsertToErectedRepository:
     def __init__(self, db: AsyncSession, insert_data: InsertErectedSchema):
         self.db = db
         self.insert_data = insert_data
+
     async def insert_to_erected(self):
         try:
             # 1. Get transport record
@@ -613,49 +725,68 @@ class InsertToErectedRepository:
             )
             transport_result = await self.db.execute(transport_query)
             transport_row = transport_result.scalar_one_or_none()
+
             if not transport_row:
                 raise HTTPException(
                     status_code=404,
                     detail=f"Transport record with id {self.insert_data.transport_id} not found"
                 )
+
             # 2. Validate against t_leftover_qty
             if self.insert_data.e_qty <= 0:
                 raise HTTPException(
                     status_code=400,
                     detail="Erected quantity must be greater than 0"
                 )
+
             if transport_row.t_leftover_qty is None or transport_row.t_leftover_qty <= 0:
                 raise HTTPException(
                     status_code=400,
                     detail="No remaining quantity available for erection from this transport"
                 )
+
             if self.insert_data.e_qty > transport_row.t_leftover_qty:
                 raise HTTPException(
                     status_code=400,
                     detail=f"Erected quantity ({self.insert_data.e_qty}) cannot exceed available leftover ({transport_row.t_leftover_qty})"
                 )
-            # 3. Find Combine record to get main_id
-            combine_query = select(Combine).where(
-                Combine.transport_id == self.insert_data.transport_id
-            )
-            combine_result = await self.db.execute(combine_query)
-            combine_row = combine_result.scalar_one_or_none()
-            if not combine_row or not combine_row.main_id:
+
+            # 3. Find ANY Combine record to get main_id
+            # combine_query = select(Combine).where(
+            #     Combine.transport_id == self.insert_data.transport_id
+            # ).limit(1)
+            # combine_result = await self.db.execute(combine_query)
+            # combine_row = combine_result.scalars().first()
+            #
+            # if not combine_row or not combine_row.main_id:
+            #     raise HTTPException(
+            #         status_code=404,
+            #         detail=f"No linked main record found for transport {self.insert_data.transport_id}"
+            #     )
+            #
+            # main_id = combine_row.main_id
+            main_id = transport_row.main_id
+
+            if not main_id:
                 raise HTTPException(
                     status_code=404,
                     detail=f"No linked main record found for transport {self.insert_data.transport_id}"
                 )
+
             # 4. Get Mains record for area and weight
-            main_query = select(Mains).where(Mains.id == combine_row.main_id)
+            main_query = select(Mains).where(Mains.id == main_id)
             main_result = await self.db.execute(main_query)
             main_row = main_result.scalar_one_or_none()
+
             if not main_row:
                 raise HTTPException(
                     status_code=404,
-                    detail=f"Main record with id {combine_row.main_id} not found"
+                    detail=f"Main record with id {main_id} not found"
                 )
+
             # 5. Calculate weight: main.weight * e_qty
             calculated_weight = main_row.weight * self.insert_data.e_qty if main_row.weight else 0
+
             # 6. Create Erected record
             erected_record = Erected(
                 area=main_row.area,
@@ -672,25 +803,35 @@ class InsertToErectedRepository:
                 range=self.insert_data.range,
                 created_by=self.insert_data.created_by
             )
+
             self.db.add(erected_record)
-            await self.db.flush()  # Get erected_record.id
+            await self.db.flush()
+
             # 7. Deduct from transport leftover
             transport_row.t_leftover_qty -= self.insert_data.e_qty
-            # 8. Update Combine record with erected_id
-            combine_row.erected_id = erected_record.id
+
+            # 8. Create NEW Combine record
+            new_combine = Combine(
+                transport_id=transport_row.id,
+                main_id=main_id,
+                erected_id=erected_record.id
+            )
+            self.db.add(new_combine)
+
             # 9. Commit everything
             await self.db.commit()
             await self.db.refresh(erected_record)
             await self.db.refresh(transport_row)
-            await self.db.refresh(combine_row)
+            await self.db.refresh(new_combine)
+
             return {
                 "success": True,
                 "message": "Erected record created successfully",
                 "data": {
                     "erected_id": erected_record.id,
                     "transport_id": transport_row.id,
-                    "main_id": main_row.id,
-                    "combine_id": combine_row.id,
+                    "main_id": main_id,
+                    "combine_id": new_combine.id,
                     "e_qty": self.insert_data.e_qty,
                     "e_weight": calculated_weight,
                     "date": str(date.today()),
@@ -701,9 +842,10 @@ class InsertToErectedRepository:
                     "altitude_mark_2": self.insert_data.altitude_mark_2,
                     "axis": self.insert_data.axis,
                     "range": self.insert_data.range,
-                    "transport_leftover_qty": transport_row.t_leftover_qty  # UPDATED leftover
+                    "transport_leftover_qty": transport_row.t_leftover_qty
                 }
             }
+
         except HTTPException:
             raise
         except Exception as e:

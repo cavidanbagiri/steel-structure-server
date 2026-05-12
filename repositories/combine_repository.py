@@ -1,5 +1,4 @@
 from typing import Optional
-from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, and_, func
 from sqlalchemy.orm import selectinload
@@ -11,40 +10,38 @@ class FetchAllCombineRepository:
         self.db = db
 
     async def fetch_all_combine_data(
-        self,
-        limit: int = 100,
-        offset: int = 0,
-        # Main filters
-        main_area: Optional[str] = None,
-        main_zone: Optional[str] = None,
-        main_item: Optional[str] = None,
-        # Transport filters
-        transport_status: Optional[str] = None,
-        transport_date_from: Optional[str] = None,
-        transport_date_to: Optional[str] = None,
-        # Erected filters
-        erected_date_from: Optional[str] = None,
-        erected_date_to: Optional[str] = None,
-        # Global search
-        search: Optional[str] = None,
+            self,
+            limit: int = 100,
+            offset: int = 0,
+            # Main filters
+            main_area: Optional[str] = None,
+            main_zone: Optional[str] = None,
+            main_item: Optional[str] = None,
+            # Transport filters
+            transport_status: Optional[str] = None,
+            transport_date_from: Optional[str] = None,
+            transport_date_to: Optional[str] = None,
+            # Erected filters
+            erected_date_from: Optional[str] = None,
+            erected_date_to: Optional[str] = None,
+            # Global search
+            search: Optional[str] = None,
     ):
         try:
-            # Base query with eager loading
+            # ============================================================
+            # BASE QUERY: Start from Transport (not Combine!)
+            # This ensures transports without erections are included
+            # ============================================================
             query = (
-                select(Combine)
+                select(TransportModel)
+                .join(Mains, TransportModel.main_id == Mains.id, isouter=True)
                 .options(
-                    selectinload(Combine.main),
-                    selectinload(Combine.transport),
-                    selectinload(Combine.erected)
+                    selectinload(TransportModel.combines).selectinload(Combine.erected),
+                    selectinload(TransportModel.combines).selectinload(Combine.main),
                 )
             )
 
-            # Join for filtering
-            query = query.join(Mains, Combine.main_id == Mains.id, isouter=True)
-            query = query.join(TransportModel, Combine.transport_id == TransportModel.id, isouter=True)
-            query = query.join(Erected, Combine.erected_id == Erected.id, isouter=True)
-
-            # Apply filters
+            # Build filter conditions
             filter_conditions = []
 
             # Main filters
@@ -63,14 +60,23 @@ class FetchAllCombineRepository:
             if transport_date_to:
                 filter_conditions.append(TransportModel.t_date <= transport_date_to)
 
-            # Erected filters
-            if erected_date_from:
-                filter_conditions.append(Erected.daily_e_date >= erected_date_from)
-            if erected_date_to:
-                filter_conditions.append(Erected.daily_e_date <= erected_date_to)
+            # Erected filters — need to join through Combine
+            if erected_date_from or erected_date_to:
+                # Join Combine and Erected for filtering
+                query = query.join(Combine, Combine.transport_id == TransportModel.id, isouter=True)
+                query = query.join(Erected, Combine.erected_id == Erected.id, isouter=True)
+
+                if erected_date_from:
+                    filter_conditions.append(Erected.daily_e_date >= erected_date_from)
+                if erected_date_to:
+                    filter_conditions.append(Erected.daily_e_date <= erected_date_to)
 
             # Global search across multiple fields
             if search:
+                # Need to ensure joins for search
+                query = query.outerjoin(Combine, Combine.transport_id == TransportModel.id)
+                query = query.outerjoin(Erected, Combine.erected_id == Erected.id)
+
                 search_filter = or_(
                     Mains.area.ilike(f"%{search}%"),
                     Mains.zone.ilike(f"%{search}%"),
@@ -99,16 +105,35 @@ class FetchAllCombineRepository:
 
             # Execute
             result = await self.db.execute(query)
-            combine_rows = result.unique().scalars().all()
+            transport_rows = result.unique().scalars().all()
 
             # Serialize
             data = []
-            for combine in combine_rows:
+            for transport in transport_rows:
+                # Get main data
+                main_data = None
+                if transport.main_id:
+                    main_query = select(Mains).where(Mains.id == transport.main_id)
+                    main_result = await self.db.execute(main_query)
+                    main_row = main_result.scalar_one_or_none()
+                    if main_row:
+                        main_data = self._serialize_main(main_row)
+
+                # Get erected data from combines
+                erected_list = []
+                for combine in transport.combines:
+                    if combine.erected:
+                        erected_list.append({
+                            "combine_id": combine.id,
+                            "erected": self._serialize_erected(combine.erected),
+                        })
+
                 row = {
-                    "combine_id": combine.id,
-                    "main": self._serialize_main(combine.main) if combine.main else None,
-                    "transport": self._serialize_transport(combine.transport) if combine.transport else None,
-                    "erected": self._serialize_erected(combine.erected) if combine.erected else None,
+                    "transport": self._serialize_transport(transport),
+                    "main": main_data,
+                    "erections": erected_list,  # Can be multiple!
+                    "has_erection": len(erected_list) > 0,
+                    "total_erected_qty": sum(e["erected"]["e_qty"] for e in erected_list if e["erected"]),
                 }
                 data.append(row)
 
@@ -163,6 +188,7 @@ class FetchAllCombineRepository:
             return None
         return {
             "id": transport.id,
+            "main_id": transport.main_id,
             "structure_1": transport.structure_1,
             "structure_2": transport.structure_2,
             "raw_labels": transport.raw_labels,

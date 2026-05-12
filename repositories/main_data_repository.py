@@ -537,6 +537,7 @@ class InsertToTransportRepository:
 
             # 4. Create transport record
             transport_record = TransportModel(
+                main_id=main_row.id,  # ← ADD THIS
                 structure_1=main_row.area,
                 structure_2=main_row.key,
                 key=main_row.key,
@@ -561,12 +562,13 @@ class InsertToTransportRepository:
             main_row.left_over_qty = current_leftover - self.insert_data.qty
 
             # 6. Create Combine record to link main <-> transport
-            combine_record = Combine(
-                transport_id=transport_record.id,
-                main_id=main_row.id,
-                erected_id=None
-            )
-            self.db.add(combine_record)
+
+            # combine_record = Combine(
+            #     transport_id=transport_record.id,
+            #     main_id=main_row.id,
+            #     erected_id=None
+            # )
+            # self.db.add(combine_record)
 
             # 7. Commit everything
             await self.db.commit()
@@ -578,7 +580,7 @@ class InsertToTransportRepository:
                 "data": {
                     "transport_id": transport_record.id,
                     "main_item_id": main_row.id,
-                    "combine_id": combine_record.id,
+                    # "combine_id": combine_record.id,
                     "quantity_transported": self.insert_data.qty,
                     "remaining_leftover": main_row.left_over_qty,
                     "project_qty": main_row.qty,
