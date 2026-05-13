@@ -299,7 +299,6 @@ class ImportMainDataRepository:
             raise Exception(f"Failed to preview file: {str(e)}")
 
 
-
 class FetchMainDataRepository:
 
     def __init__(self, db: AsyncSession):
@@ -461,7 +460,6 @@ class FetchMainDataRepository:
             raise Exception(f"Failed to get unique values: {str(e)}")
 
 
-
 class GetRowByIdRepository:
     def __init__(self, db: AsyncSession, id: int):
         self.db = db
@@ -598,3 +596,4 @@ class InsertToTransportRepository:
         except Exception as e:
             await self.db.rollback()
             raise Exception(f"Failed to insert transport record: {str(e)}")
+

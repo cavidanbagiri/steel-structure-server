@@ -6,7 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.setup import get_db
 
-from repositories.main_data_repository import ImportMainDataRepository, FetchMainDataRepository, GetRowByIdRepository, InsertToTransportRepository
+from repositories.main_data_repository import ImportMainDataRepository, FetchMainDataRepository, GetRowByIdRepository, \
+    InsertToTransportRepository
+
 from schemas.main_schema import InsertTransportSchema
 
 router = APIRouter()
@@ -104,16 +106,6 @@ async def get_unique_values(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/fetch_main_data_statistics", status_code=200)
-async def get_main_data_statistics(
-    db: AsyncSession = Depends(get_db)
-):
-    try:
-        repo = FetchMainDataRepository(db)
-        result = await repo.get_statistics()
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 
@@ -139,7 +131,6 @@ async def insert_to_transport(
     db: AsyncSession = Depends(get_db)
 ):
     try:
-        print(insert_data.qty)
         repo = InsertToTransportRepository(db, insert_data)
         result = await repo.insert_to_transport()
         return result
@@ -147,10 +138,6 @@ async def insert_to_transport(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-
-
 
 
 

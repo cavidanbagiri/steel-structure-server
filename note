@@ -1,16 +1,6 @@
 
 
-The result:
+You are super. Now please write the entire component, service and slice for me.
 
-Main ID     Transport ID        Erected ID
-612         38                  null
-612         38                  10
-612         38                  11
-612         38                  12
-612         38                  13
 
-Now, l transport from 35, 21 and 14 pcs.
-From 21pcs, l erect 9pcs,4pcs,3 pcs and 5pcs.
-For each erect, create a new id in Combine model. But l think this is a problem.
-I can say, this problem is coming from Insert from main to transport. Because when l insert from main to transport,
-first combine is created which Erected set as Null.
+

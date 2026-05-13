@@ -9,6 +9,7 @@ from routers import transport_router
 from routers import main_data_router
 from routers import erected_router
 from routers import combine_router
+from routers import statistic_router
 
 app = FastAPI()
 
@@ -34,3 +35,4 @@ app.include_router(router = main_data_router.router, prefix="/api/main", tags=["
 app.include_router(router = transport_router.router, prefix="/api/transport", tags=["Transport"])
 app.include_router(router = erected_router.router, prefix="/api/erected", tags=["Erected"])
 app.include_router(router = combine_router.router, prefix="/api/combine", tags=["Combine"])
+app.include_router(router = statistic_router.router, prefix="/api/statistic", tags=["Statistic"])
