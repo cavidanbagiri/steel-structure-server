@@ -1,6 +1,81 @@
 
 
-You are super. Now please write the entire component, service and slice for me.
+Good, now l wanna some button or span text as you wish, when l click it, show or hide the MainStatistics component.
+
+Can you write a code for me pls?
 
 
+import MainStatistics from '../components/main/MainStatistics';
 
+function Main() {
+  const dispatch = useDispatch();
+
+
+  return (
+    <div className="flex flex-row min-h-screen bg-gray-50">
+
+      <MainStatistics/>
+
+      <div className="flex-1">
+        {/* Header */}
+        <div className="flex items-center justify-between flex-wrap gap-4 px-6 py-6">
+          <div className="flex items-center gap-4">
+            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Main Data</h1>
+            {loading && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-full">
+                <span className="text-indigo-500"><Icons.Loader /></span>
+                <span className="text-xs text-indigo-600 font-medium">Loading...</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className='mt-5'>
+
+          {/* Top Pagination */}
+          <MainPagination
+            total={pagination.total}
+            limit={pagination.limit}
+            offset={pagination.offset}
+            onPageChange={handlePageChange}
+          />
+        </div>
+
+
+        {/* Table */}
+        <MainTable
+          columns={ALL_COLUMNS}
+          columnVisibility={columnVisibility}
+          data={data}
+          loading={loading}
+          sortConfig={sortConfig}
+          filterValues={filterValues}
+          onToggleColumn={handleToggleColumn}
+          onResetColumns={handleResetColumns}
+          onSort={handleSort}
+          onFilterChange={handleFilterChange}
+          onFilterClear={handleFilterClear}
+          onRowAction={handleRowAction}
+        />
+
+        {/* Bottom Pagination */}
+        <MainPagination
+          total={pagination.total}
+          limit={pagination.limit}
+          offset={pagination.offset}
+          onPageChange={handlePageChange}
+        />
+        {/* Modal */}
+        <MainDetailModal
+          mode={modalState.mode}
+          rowId={modalState.rowId}
+          isOpen={modalState.isOpen}
+          onClose={handleModalClose}
+          onSuccess={handleModalSuccess}   // ADD THIS
+        />
+
+      </div>
+
+    </div>
+  );
+}

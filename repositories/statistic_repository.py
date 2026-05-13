@@ -108,15 +108,15 @@ class FetchMainDataProjectStatisticsRepository:
                     "area": area,
                     "main_weight": {
                         "value": round(main_area_weight, 2),
-                        "unit": "Ton"
+                        "unit": "Kg"
                     },
                     "transport_weight": {
                         "value": round(transport_area_weight, 2),
-                        "unit": "Ton"
+                        "unit": "Kg"
                     },
                     "erected_weight": {
                         "value": round(erected_area_weight, 2),
-                        "unit": "Ton"
+                        "unit": "Kg"
                     }
                 })
 
