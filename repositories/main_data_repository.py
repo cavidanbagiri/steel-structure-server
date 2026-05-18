@@ -329,7 +329,7 @@ class FetchMainDataRepository:
 
             # Apply filters
             if area:
-                query = query.where(Mains.area == area)
+                query = query.where(Mains.area.ilike(f"%{area}%"))
 
             if zone:
                 query = query.where(Mains.zone == zone)

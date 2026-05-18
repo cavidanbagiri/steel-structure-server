@@ -15,6 +15,24 @@ from schemas.transport_schema import InsertErectedSchema
 
 router = APIRouter()
 
+#
+# @router.post("/import_static_transport_data", status_code=201)
+# async def import_static_transport_data(db: AsyncSession = Depends(get_db)):
+#     repository = ImportTransportDataRepository(db)
+#
+#     try:
+#         result = await repository.import_transport_data()
+#
+#         return {
+#             "message": "Import completed",
+#             "total_rows_processed": result["total_rows"],
+#             "successful_imports": result["successful_imports"],
+#             "failed_rows": result["failed_rows"],
+#             "errors_file": result.get("errors_file")
+#         }
+#
+#     except Exception as ex:
+#         raise HTTPException(500, f'Internal server error: {str(ex)}')
 
 @router.post("/import_static_transport_data", status_code=201)
 async def import_static_transport_data(db: AsyncSession = Depends(get_db)):
@@ -24,16 +42,16 @@ async def import_static_transport_data(db: AsyncSession = Depends(get_db)):
         result = await repository.import_transport_data()
 
         return {
-            "message": "Import completed",
-            "total_rows_processed": result["total_rows"],
+            "success": True,
+            "message": "Transport import completed",
+            "total_rows": result["total_rows"],
             "successful_imports": result["successful_imports"],
-            "failed_rows": result["failed_rows"],
-            "errors_file": result.get("errors_file")
+            "errors": result["errors"],
+            "errors_count": len(result["errors"])
         }
 
     except Exception as ex:
-        raise HTTPException(500, f'Internal server error: {str(ex)}')
-
+        raise HTTPException(status_code=500, detail=f'Internal server error: {str(ex)}')
 
 @router.get("/fetch_transport_data", status_code=200)
 async def fetch_transport_data(
@@ -218,6 +236,8 @@ async def delete_transport(
 
     except Exception as ex:
         raise HTTPException(500, f'Internal server error: {str(ex)}')
+
+
 
 
 

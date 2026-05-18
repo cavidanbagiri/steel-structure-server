@@ -1,81 +1,37 @@
 
+Let's look at the picture from wide window.
 
-Good, now l wanna some button or span text as you wish, when l click it, show or hide the MainStatistics component.
+This is tables and their columns.
+main_data.xlsx: [area, zone, key, row_labels,item, p/s, qty, description, section, length, weight, weight_total, dwgn]
+transport_data.xlsx: [structure_1, structure_2, raw_labels, mark_name, t_qty, t_weight, t_date, t_status, proce_qty, order_no,key, area, location]
+erected_data.xlsx: [area, structure, row_labels, mark_names, e_qty, e_weight, daily_e_date, proce_qty, altitude_mark_1	axis, range, altitude_mark_2]
 
-Can you write a code for me pls?
+You asked about the common identifier between this excel files in Question 1. Yes has. You can see in below
 
+Between Main and Transport models, there are these 4 columns which is the same. I can see the excel.
+Main        ->      Transport
+key                 structure_2
+row_labels          row_labels
+item                mark_name
+qty                 proce_qty
 
-import MainStatistics from '../components/main/MainStatistics';
+Transport   ->      Erected
+mark_name           mark_names
+row_labels          row_labels
+structure_2         structure
+proce_qty           proce_qty
 
-function Main() {
-  const dispatch = useDispatch();
+Question 2: How are quantities structured in the Excel files?
 
+Main    Transport   Erected -> (Different)
+qty     t_qty       e_qty
 
-  return (
-    <div className="flex flex-row min-h-screen bg-gray-50">
+Main    Transport   Erected
+qty     proce_qty   proce_qty -> (Same) # Main qty is the same in Transport and Erected proce_qty. this can be key ;)
 
-      <MainStatistics/>
+Question 3: What's the end goal for the import?
+Option A is the best l think. Because l will look at the result before inserting the erected
 
-      <div className="flex-1">
-        {/* Header */}
-        <div className="flex items-center justify-between flex-wrap gap-4 px-6 py-6">
-          <div className="flex items-center gap-4">
-            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Main Data</h1>
-            {loading && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-full">
-                <span className="text-indigo-500"><Icons.Loader /></span>
-                <span className="text-xs text-indigo-600 font-medium">Loading...</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className='mt-5'>
-
-          {/* Top Pagination */}
-          <MainPagination
-            total={pagination.total}
-            limit={pagination.limit}
-            offset={pagination.offset}
-            onPageChange={handlePageChange}
-          />
-        </div>
-
-
-        {/* Table */}
-        <MainTable
-          columns={ALL_COLUMNS}
-          columnVisibility={columnVisibility}
-          data={data}
-          loading={loading}
-          sortConfig={sortConfig}
-          filterValues={filterValues}
-          onToggleColumn={handleToggleColumn}
-          onResetColumns={handleResetColumns}
-          onSort={handleSort}
-          onFilterChange={handleFilterChange}
-          onFilterClear={handleFilterClear}
-          onRowAction={handleRowAction}
-        />
-
-        {/* Bottom Pagination */}
-        <MainPagination
-          total={pagination.total}
-          limit={pagination.limit}
-          offset={pagination.offset}
-          onPageChange={handlePageChange}
-        />
-        {/* Modal */}
-        <MainDetailModal
-          mode={modalState.mode}
-          rowId={modalState.rowId}
-          isOpen={modalState.isOpen}
-          onClose={handleModalClose}
-          onSuccess={handleModalSuccess}   // ADD THIS
-        />
-
-      </div>
-
-    </div>
-  );
-}
+Question 4: For quantities that don't match (like erected 30 from a 21 transport):
+Very interesting. Lets do it in this form if you say yes of course.
+Again 35 in main, 21 and 14 l transport, the user import 30 and 5. we can show as 21,9 and 5.

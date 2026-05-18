@@ -8,19 +8,45 @@ from datetime import datetime, date
 router = APIRouter()
 
 
-@router.post("/import_static_erected_data", status_code=status.HTTP_201_CREATED)
-async def import_static_erected_data(
-        background_tasks: BackgroundTasks,
-        db: AsyncSession = Depends(get_db)
-):
+# @router.post("/import_static_erected_data", status_code=status.HTTP_201_CREATED)
+# async def import_static_erected_data(
+#         background_tasks: BackgroundTasks,
+#         db: AsyncSession = Depends(get_db)
+# ):
+#     try:
+#         repo = ImportErectedDataRepository(db)
+#         result = await repo.import_erected_main_data()
+#         return result
+#     except FileNotFoundError as e:
+#         raise HTTPException(status_code=404, detail=str(e))
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+
+
+@router.post("/import_static_erected_data", status_code=201)
+async def import_static_erected_data(db: AsyncSession = Depends(get_db)):
+    repository = ImportErectedDataRepository(db)
+
     try:
-        repo = ImportErectedDataRepository(db)
-        result = await repo.import_erected_main_data()
-        return result
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        result = await repository.import_erected_data()
+
+        return {
+            "success": True,
+            "message": "Erected import completed",
+            "total_rows": result["total_rows"],
+            "successful_imports": result["successful_imports"],
+            "unmatched_rows": result["unmatched_rows"],
+            "errors": result["errors"],
+            "errors_count": len(result["errors"]),
+            "unmatched_count": len(result["unmatched_rows"])
+        }
+
+    except Exception as ex:
+        raise HTTPException(status_code=500, detail=f'Internal server error: {str(ex)}')
+
 
 
 @router.get("/preview_erected_data")
