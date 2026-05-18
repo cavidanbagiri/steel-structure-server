@@ -60,13 +60,19 @@ async def fetch_transport_data(
         # Filters
         structure_1: Optional[str] = Query(None, description="Filter by Structure 1"),
         structure_2: Optional[str] = Query(None, description="Filter by Structure 2"),
+        raw_labels: Optional[str] = Query(None, description="Filter by Row Labels"),
         mark_name: Optional[str] = Query(None, description="Filter by Mark Name (partial match)"),
         order_no: Optional[str] = Query(None, description="Filter by Order No (partial match)"),
         area: Optional[str] = Query(None, description="Filter by Area"),
         location: Optional[str] = Query(None, description="Filter by Location"),
+        key: Optional[str] = Query(None, description="Filter by Key"),
         t_status: Optional[str] = Query(None, description="Filter by Transport Status"),
         t_date_from: Optional[date] = Query(None, description="Filter by date from"),
         t_date_to: Optional[date] = Query(None, description="Filter by date to"),
+        t_qty: Optional[float] = Query(None, description="Filter by Transport Quantity"),
+        t_weight: Optional[float] = Query(None, description="Filter by Transport Weight"),
+        t_leftover_qty: Optional[float] = Query(None, description="Filter by Transport Leftover Quantity"),
+        proce_qty: Optional[float] = Query(None, description="Filter by Transport Proce Quantity"),
         min_weight: Optional[float] = Query(None, description="Minimum weight"),
         max_weight: Optional[float] = Query(None, description="Maximum weight"),
         search: Optional[str] = Query(None, description="Search across multiple fields"),
@@ -80,13 +86,19 @@ async def fetch_transport_data(
             offset=offset,
             structure_1=structure_1,
             structure_2=structure_2,
+            raw_labels=raw_labels,
             mark_name=mark_name,
             order_no=order_no,
             area=area,
             location=location,
+            key=key,
             t_status=t_status,
             t_date_from=t_date_from,
             t_date_to=t_date_to,
+            t_qty = t_qty,
+            t_weight = t_weight,
+            t_leftover_qty = t_leftover_qty,
+            proce_qty = proce_qty,
             min_weight=min_weight,
             max_weight=max_weight,
             search=search
@@ -113,30 +125,71 @@ async def get_transport_by_id(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+
 @router.get("/unique_values/{column_name}", status_code=200)
 async def get_unique_values(
-        column_name: str,
-        db: AsyncSession = Depends(get_db)
+    column_name: str,
+    db: AsyncSession = Depends(get_db)
 ):
-    """Get unique values for a column (useful for filter dropdowns)"""
+    """Get unique values for filters"""
+
     repository = FetchTransportDataRepository(db)
 
-    # Allowed column names for security
     allowed_columns = [
-        "structure_1", "structure_2", "area", "location",
-        "t_status", "mark_name"
+        "structure_1",
+        "area",
+        "location",
+        "t_status"
     ]
 
     if column_name not in allowed_columns:
-        raise HTTPException(400, f"Column '{column_name}' is not allowed")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Column '{column_name}' is not allowed"
+        )
 
     try:
         result = await repository.get_unique_values(column_name)
-        return {column_name: result}
+
+        return {
+            "success": True,
+            "column": column_name,
+            "values": result
+        }
 
     except Exception as ex:
-        raise HTTPException(500, f'Internal server error: {str(ex)}')
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error: {str(ex)}"
+        )
 
+
+
+#
+# @router.get("/unique_values/{column_name}", status_code=200)
+# async def get_unique_values(
+#         column_name: str,
+#         db: AsyncSession = Depends(get_db)
+# ):
+#     """Get unique values for a column (useful for filter dropdowns)"""
+#     repository = FetchTransportDataRepository(db)
+#
+#     # Allowed column names for security
+#     allowed_columns = [
+#         "structure_1", "area", "location",
+#         "t_status"
+#     ]
+#
+#     if column_name not in allowed_columns:
+#         raise HTTPException(400, f"Column '{column_name}' is not allowed")
+#
+#     try:
+#         result = await repository.get_unique_values(column_name)
+#         return {column_name: result}
+#
+#     except Exception as ex:
+#         raise HTTPException(500, f'Internal server error: {str(ex)}')
+#
 
 
 

@@ -306,13 +306,19 @@ class FetchTransportDataRepository:
             # Optional filters
             structure_1: Optional[str] = None,
             structure_2: Optional[str] = None,
+            raw_labels: Optional[str] = None,
             mark_name: Optional[str] = None,
             order_no: Optional[str] = None,
             area: Optional[str] = None,
             location: Optional[str] = None,
+            key: Optional[str] = None,
             t_status: Optional[str] = None,
             t_date_from: Optional[date] = None,
             t_date_to: Optional[date] = None,
+            t_qty: Optional[float] = None,
+            t_weight: Optional[float] = None,
+            t_leftover_qty: Optional[float] = None,
+            proce_qty: Optional[float] = None,
             min_weight: Optional[float] = None,
             max_weight: Optional[float] = None,
             search: Optional[str] = None
@@ -328,10 +334,13 @@ class FetchTransportDataRepository:
             filters = []
 
             if structure_1:
-                filters.append(TransportModel.structure_1 == structure_1)
+                filters.append(TransportModel.structure_1.ilike(f"%{structure_1}%"))
 
             if structure_2:
-                filters.append(TransportModel.structure_2 == structure_2)
+                filters.append(TransportModel.structure_2.ilike(f"%{structure_2}%"))
+
+            if raw_labels:
+                filters.append(TransportModel.raw_labels.ilike(f"%{raw_labels}%"))
 
             if mark_name:
                 filters.append(TransportModel.mark_name.ilike(f"%{mark_name}%"))
@@ -340,19 +349,34 @@ class FetchTransportDataRepository:
                 filters.append(TransportModel.order_no.ilike(f"%{order_no}%"))
 
             if area:
-                filters.append(TransportModel.area == area)
+                filters.append(TransportModel.area.ilike(f"%{area}%"))
 
             if location:
-                filters.append(TransportModel.location == location)
+                filters.append(TransportModel.location.ilike(f"%{location}%"))
+
+            if key:
+                filters.append(TransportModel.key.ilike(f"%{key}%"))
 
             if t_status:
-                filters.append(TransportModel.t_status == t_status)
+                filters.append(TransportModel.t_status.ilike(f"%{t_status}%"))
 
             if t_date_from:
                 filters.append(TransportModel.t_date >= t_date_from)
 
             if t_date_to:
                 filters.append(TransportModel.t_date <= t_date_to)
+
+            if t_qty is not None:
+                filters.append(TransportModel.t_qty == t_qty)
+
+            if t_weight is not None:
+                filters.append(TransportModel.t_weight == t_weight)
+
+            if t_leftover_qty is not None:
+                filters.append(TransportModel.t_leftover_qty == t_leftover_qty)
+
+            if proce_qty is not None:
+                filters.append(TransportModel.proce_qty == proce_qty)
 
             if min_weight is not None:
                 filters.append(TransportModel.t_weight >= min_weight)
@@ -427,22 +451,71 @@ class FetchTransportDataRepository:
             logger.error(f"Failed to fetch transport data: {str(e)}")
             raise Exception(f"Database query failed: {str(e)}")
 
-    async def get_unique_values(self, column_name: str) -> List[str]:
-        """Get unique values for a specific column (for filters)"""
-        try:
-            column = getattr(TransportModel, column_name, None)
-            if not column:
-                raise ValueError(f"Invalid column name: {column_name}")
+        async def get_unique_values(self, column_name: str):
+            """Get unique values with statistics"""
 
-            query = select(column).where(column.isnot(None)).distinct()
-            result = await self.db.execute(query)
-            values = result.scalars().all()
+            try:
+                column = getattr(TransportModel, column_name, None)
 
-            return sorted([v for v in values if v])
+                if column is None:
+                    raise ValueError(f"Invalid column name: {column_name}")
 
-        except Exception as e:
-            logger.error(f"Failed to get unique values for {column_name}: {str(e)}")
-            raise Exception(f"Query failed: {str(e)}")
+                query = (
+                    select(
+                        column.label("value"),
+                        func.count(TransportModel.id).label("count"),
+                        func.coalesce(
+                            func.sum(TransportModel.weight_total),
+                            0
+                        ).label("weight_total")
+                    )
+                    .where(column.isnot(None))
+                    .group_by(column)
+                    .order_by(column.asc())
+                )
+
+                result = await self.db.execute(query)
+
+                rows = result.all()
+
+                values = [
+                    {
+                        "value": row.value,
+                        "count": row.count,
+                        "weight_total": float(row.weight_total or 0)
+                    }
+                    for row in rows
+                    if row.value
+                ]
+
+                return values
+
+            except Exception as e:
+                logger.error(
+                    f"Failed to get unique values for {column_name}: {str(e)}"
+                )
+
+                raise Exception(f"Query failed: {str(e)}")
+
+
+
+    #
+    # async def get_unique_values(self, column_name: str) -> List[str]:
+    #     """Get unique values for a specific column (for filters)"""
+    #     try:
+    #         column = getattr(TransportModel, column_name, None)
+    #         if not column:
+    #             raise ValueError(f"Invalid column name: {column_name}")
+    #
+    #         query = select(column).where(column.isnot(None)).distinct()
+    #         result = await self.db.execute(query)
+    #         values = result.scalars().all()
+    #
+    #         return sorted([v for v in values if v])
+    #
+    #     except Exception as e:
+    #         logger.error(f"Failed to get unique values for {column_name}: {str(e)}")
+    #         raise Exception(f"Query failed: {str(e)}")
 
 
 class TransportWriteRepository:
