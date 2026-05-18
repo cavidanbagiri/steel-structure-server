@@ -332,7 +332,7 @@ class FetchMainDataRepository:
                 query = query.where(Mains.area.ilike(f"%{area}%"))
 
             if zone:
-                query = query.where(Mains.zone == zone)
+                query = query.where(Mains.zone.ilike(f"%{zone}%"))
 
             if key:
                 query = query.where(Mains.key.ilike(f"%{key}%"))
@@ -440,24 +440,78 @@ class FetchMainDataRepository:
         except Exception as e:
             raise Exception(f"Failed to fetch main data: {str(e)}")
 
-    async def get_unique_values(self, column_name: str):
-        """Get unique values for a specific column (for filter dropdowns)"""
-        try:
-            column = getattr(Mains, column_name, None)
-            if not column:
-                raise ValueError(f"Column '{column_name}' does not exist in Mains model")
+    # async def get_unique_values(self, column_name: str):
+    #     """Get unique values for a specific column (for filter dropdowns)"""
+    #     try:
+    #         column = getattr(Mains, column_name, None)
+    #         if not column:
+    #             raise ValueError(f"Column '{column_name}' does not exist in Mains model")
+    #
+    #         query = select(column).where(column.isnot(None)).distinct()
+    #         result = await self.db.execute(query)
+    #         values = result.scalars().all()
+    #
+    #         return {
+    #             "success": True,
+    #             "column": column_name,
+    #             "values": sorted([v for v in values if v])
+    #         }
+    #     except Exception as e:
+    #         raise Exception(f"Failed to get unique values: {str(e)}")
 
-            query = select(column).where(column.isnot(None)).distinct()
+    async def get_unique_values(self, column_name: str):
+        """Get unique values with statistics for searchable filters"""
+
+        try:
+            # Validate column
+            column = getattr(Mains, column_name, None)
+
+            if not column:
+                raise ValueError(
+                    f"Column '{column_name}' does not exist in Mains model"
+                )
+
+            query = (
+                select(
+                    column.label("value"),
+
+                    # How many rows
+                    func.count(Mains.id).label("count"),
+
+                    # Total weight
+                    func.coalesce(
+                        func.sum(Mains.weight_total),
+                        0
+                    ).label("weight_total")
+                )
+                .where(column.isnot(None))
+                .group_by(column)
+                .order_by(column.asc())
+            )
+
             result = await self.db.execute(query)
-            values = result.scalars().all()
+
+            rows = result.all()
+
+            values = []
+
+            for row in rows:
+                values.append({
+                    "value": row.value,
+                    "count": row.count,
+                    "weight_total": float(row.weight_total or 0)
+                })
 
             return {
                 "success": True,
                 "column": column_name,
-                "values": sorted([v for v in values if v])
+                "values": values
             }
+
         except Exception as e:
-            raise Exception(f"Failed to get unique values: {str(e)}")
+            raise Exception(
+                f"Failed to get unique values: {str(e)}"
+            )
 
 
 class GetRowByIdRepository:
